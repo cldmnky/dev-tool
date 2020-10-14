@@ -15,7 +15,7 @@ limitations under the License.
 */
 package main
 
-import "github.com/BetssonGroup/dev-tool/cmd"
+import "github.com/cldmnky/dev-tool/cmd"
 
 func main() {
 	cmd.Execute()

@@ -1,4 +1,4 @@
-module github.com/BetssonGroup/dev-tool
+module github.com/cldmnky/dev-tool
 
 go 1.14
 
