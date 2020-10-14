@@ -31,12 +31,11 @@ var buildCmd = &cobra.Command{
 	Long:  `Build  docker image.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Get the current commit
-		rev, err := git.GetCommit()
+		rev, err := git.GetCommit(".")
 		if err != nil {
 			log.Fatalf("Error getting commit: %s", err)
 		}
-		fmt.Printf("%s", rev)
-		err = image.BuildImage("Dockerfile", ".", []string{"tag:foo"})
+		err = image.BuildImage("Dockerfile", ".", fmt.Sprintf("imagename:%s", rev))
 		if err != nil {
 			log.Fatalf("build error - %s", err)
 		}

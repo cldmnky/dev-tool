@@ -1,10 +1,7 @@
 package image
 
 import (
-	"bufio"
 	"context"
-	"io"
-	"log"
 	"os"
 	"time"
 
@@ -16,7 +13,7 @@ import (
 )
 
 // BuildImage builds a docker image
-func BuildImage(dockerFilePath string, buildContextPath string, tags []string) error {
+func BuildImage(dockerFilePath string, buildContextPath string, tag string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(300)*time.Second)
 	defer cancel()
 	cli, err := client.NewEnvClient()
@@ -25,7 +22,7 @@ func BuildImage(dockerFilePath string, buildContextPath string, tags []string) e
 	}
 	buildOpts := types.ImageBuildOptions{
 		Dockerfile: dockerFilePath,
-		Tags:       tags,
+		Tags:       []string{tag},
 	}
 
 	buildCtx, _ := archive.TarWithOptions(buildContextPath, &archive.TarOptions{})
@@ -38,21 +35,12 @@ func BuildImage(dockerFilePath string, buildContextPath string, tags []string) e
 
 	termFd, isTerm := term.GetFdInfo(os.Stderr)
 	jsonmessage.DisplayJSONMessagesStream(resp.Body, os.Stderr, termFd, isTerm, nil)
-	return nil
-}
 
-//writes from the build response to the log
-func writeToLog(reader io.ReadCloser) error {
-	defer reader.Close()
-	rd := bufio.NewReader(reader)
-	for {
-		n, _, err := rd.ReadLine()
-		if err != nil && err == io.EOF {
-			break
-		} else if err != nil {
-			return err
-		}
-		log.Println(string(n))
+	imagePushOpts := types.ImagePushOptions{} // TODO add auth creds
+	pushResp, err := cli.ImagePush(ctx, tag, imagePushOpts)
+	if err != nil {
+		return err
 	}
+	defer pushResp.Close()
 	return nil
 }

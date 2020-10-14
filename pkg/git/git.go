@@ -5,8 +5,11 @@ import (
 )
 
 // GetCommit return the current commit
-func GetCommit() (string, error) {
-	r, err := git.PlainOpen(".")
+func GetCommit(path string) (string, error) {
+	opts := git.PlainOpenOptions{
+		DetectDotGit: true,
+	}
+	r, err := git.PlainOpenWithOptions(path, &opts)
 	if err != nil {
 		return "", err
 	}
@@ -14,5 +17,5 @@ func GetCommit() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return ref.Hash().String(), nil
+	return ref.Hash().String()[0:8], nil
 }
