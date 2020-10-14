@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/BetssonGroup/dev-tool/pkg/git"
-	"github.com/BetssonGroup/dev-tool/pkg/image"
+	"github.com/cldmnky/dev-tool/pkg/git"
+	"github.com/cldmnky/dev-tool/pkg/image"
 	"github.com/spf13/cobra"
 )
 
