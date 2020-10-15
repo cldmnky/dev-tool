@@ -16,6 +16,10 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v1.0.0-rc9 //indirect
+	github.com/rancher/cli v2.2.0+incompatible
+	github.com/rancher/norman v0.0.0-20200930000340-693d65aaffe3
+	github.com/rancher/types v0.0.0-20200918184036-e1dd38de6b4a
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.7.1
+	gopkg.in/yaml.v2 v2.3.0
 )

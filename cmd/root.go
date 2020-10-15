@@ -17,25 +17,29 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
+	"io/ioutil"
 	"os"
+
+	"github.com/cldmnky/dev-tool/pkg/config"
+	"github.com/spf13/cobra"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v2"
 )
 
 var cfgFile string
 
+const (
+	configDir      = ".dev-tool"
+	configFileName = "dev-tool.yaml"
+)
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "dev-tool",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Doing fun things at Betsson",
+	Long:  `THe dev-tool can do lot's of things, try dev-tool help for starters.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	//	Run: func(cmd *cobra.Command, args []string) { },
@@ -57,7 +61,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.dev-tool.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.dev-tool/dev-tool.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -71,21 +75,54 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
+		home := getHomeDir()
 		// Search config in home directory with name ".dev-tool" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".dev-tool")
+		viper.AddConfigPath(fmt.Sprintf("%s/%s", home, configDir))
+		viper.AddConfigPath(".")
+		viper.SetConfigName(configFileName)
+		viper.SetConfigType("yaml")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a config file is found, read it in.
+	// If a config file is found, read it in, else create it
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	} else {
+		if err := createDefaultConfig(configFileName); err != nil {
+			fmt.Printf("Error creating config file: %s", err)
+			os.Exit(1)
+		}
 	}
+}
+
+func getHomeDir() string {
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println("Unable to locate home directory")
+		os.Exit(1)
+	}
+	return home
+}
+
+func createDefaultConfig(configFile string) error {
+	home := getHomeDir()
+	defaultConfig := &config.Config{}
+	defaultConfig.Rancher.Clusters = []config.RancherCluster{
+		{
+			Environment: "prod",
+			URL:         "https://kube-api.prod",
+			Token:       "changeme",
+		},
+		{
+			Environment: "test",
+			URL:         "https://kube-api.test",
+			Token:       "changeme",
+		},
+	}
+	newConfig, _ := yaml.Marshal(&defaultConfig)
+	configPath := fmt.Sprintf("%s/%s/%s", home, configDir, configFile)
+	os.Mkdir(fmt.Sprintf("%s/%s", home, configDir), 0700)
+	ioutil.WriteFile(configPath, newConfig, 0600)
+	return nil
 }
