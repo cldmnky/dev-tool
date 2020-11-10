@@ -1,15 +1,35 @@
 package rancher
 
 import (
+	"bytes"
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"math/big"
+	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
+	"os/signal"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/rancher/cli/cliclient"
 	"github.com/rancher/cli/config"
 	"github.com/rancher/norman/types"
 	clusterClient "github.com/rancher/types/client/cluster/v3"
 	client "github.com/rancher/types/client/management/v3"
+)
+
+const (
+	authTokenURL = "%s/v3-public/authTokens/%s"
 )
 
 type RancherClient struct {
@@ -42,7 +62,134 @@ func GetClient(rancherURI string, token string) (*RancherClient, error) {
 	return rancherClient, nil
 }
 
-// GetServers returns Servers for the user
+// GetToken returns a Rancher management token using a ADFS login flow
+func GetToken(rancherURI string) (client.Token, error) {
+	token := client.Token{}
+	// Generate a private key
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return token, err
+	}
+	publicKey := privateKey.PublicKey
+	marshalKey, err := json.Marshal(publicKey)
+	if err != nil {
+		return token, err
+	}
+	encodedKey := base64.StdEncoding.EncodeToString(marshalKey)
+	id, err := generateKey()
+	if err != nil {
+		return token, err
+	}
+	responseType := "json"
+	tokenURL := fmt.Sprintf(authTokenURL, rancherURI, id)
+	req, err := http.NewRequest(http.MethodGet, tokenURL, bytes.NewBuffer(nil))
+	if err != nil {
+		return token, err
+	}
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("accept", "application/json")
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+
+	client := &http.Client{Transport: tr, Timeout: 300 * time.Second}
+
+	loginRequest := fmt.Sprintf("%s/login?requestId=%s&publicKey=%s&responseType=%s",
+		rancherURI, id, encodedKey, responseType)
+
+	fmt.Printf("\nLogin to Rancher Server at %s \n", loginRequest)
+	openbrowser(loginRequest)
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
+	// timeout for user to login and get token
+	timeout := time.NewTicker(15 * time.Minute)
+	defer timeout.Stop()
+
+	poll := time.NewTicker(10 * time.Second)
+	defer poll.Stop()
+
+	for {
+		select {
+		case <-poll.C:
+			res, err := client.Do(req)
+			if err != nil {
+				return token, err
+			}
+			content, err := ioutil.ReadAll(res.Body)
+			if err != nil {
+				res.Body.Close()
+				return token, err
+			}
+			res.Body.Close()
+			err = json.Unmarshal(content, &token)
+			if err != nil {
+				return token, err
+			}
+			if token.Token == "" {
+				continue
+			}
+			decoded, err := base64.StdEncoding.DecodeString(token.Token)
+			if err != nil {
+				return token, err
+			}
+			decryptedBytes, err := privateKey.Decrypt(nil, decoded, &rsa.OAEPOptions{Hash: crypto.SHA256})
+			if err != nil {
+				panic(err)
+			}
+			token.Token = string(decryptedBytes)
+			/*
+				// delete token
+				req, err = http.NewRequest(http.MethodDelete, tokenURL, bytes.NewBuffer(nil))
+				if err != nil {
+					return token, err
+				}
+				req.Header.Set("content-type", "application/json")
+				req.Header.Set("accept", "application/json")
+				tr := &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true,
+					},
+				}
+				client = &http.Client{Transport: tr, Timeout: 150 * time.Second}
+				res, err = client.Do(req)
+				if err != nil {
+					// log error and use the token if login succeeds
+					fmt.Printf("DeleteToken: %v", err)
+				}
+			*/
+			return token, nil
+
+		case <-timeout.C:
+			break
+
+		case <-interrupt:
+			fmt.Printf("received interrupt\n")
+			break
+		}
+
+		return token, nil
+	}
+}
+
+func generateKey() (string, error) {
+	characters := "abcdfghjklmnpqrstvwxz12456789"
+	tokenLength := 32
+	token := make([]byte, tokenLength)
+	for i := range token {
+		r, err := rand.Int(rand.Reader, big.NewInt(int64(len(characters))))
+		if err != nil {
+			return "", err
+		}
+		token[i] = characters[r.Int64()]
+	}
+	return string(token), nil
+}
+
+// GetCluster returns Servers for the user
 func (c *RancherClient) GetCluster(clusterName string) (*client.Cluster, error) {
 	clusters, err := c.Client.ManagementClient.Cluster.List(clusterListOpts())
 	if err != nil {
@@ -186,4 +333,23 @@ func clusterListOpts() *types.ListOpts {
 			},
 		},
 	}
+}
+
+func openbrowser(url string) {
+	var err error
+
+	switch runtime.GOOS {
+	case "linux":
+		err = exec.Command("xdg-open", url).Start()
+	case "windows":
+		err = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+	case "darwin":
+		err = exec.Command("open", url).Start()
+	default:
+		err = fmt.Errorf("unsupported platform")
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }

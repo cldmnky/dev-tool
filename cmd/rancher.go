@@ -47,8 +47,8 @@ func init() {
 	rancherCmd.PersistentFlags().StringP("cluster", "c", "", "Kubernetes cluster")
 	rancherCmd.PersistentFlags().StringP("namespace", "n", "", "Kubernetes namespace")
 	rancherCmd.PersistentFlags().StringP("environment", "e", "", "Environment")
-	rancherCmd.MarkPersistentFlagRequired("project")
-	rancherCmd.MarkPersistentFlagRequired("cluster")
-	rancherCmd.MarkPersistentFlagRequired("namespace")
+	//rancherCmd.MarkPersistentFlagRequired("project")
+	//rancherCmd.MarkPersistentFlagRequired("cluster")
+	//rancherCmd.MarkPersistentFlagRequired("namespace")
 	rancherCmd.MarkPersistentFlagRequired("environment")
 }

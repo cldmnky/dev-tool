@@ -2,9 +2,7 @@ module github.com/cldmnky/dev-tool
 
 go 1.14
 
-replace (
- k8s.io/client-go => k8s.io/client-go v0.18.9
- )
+replace k8s.io/client-go => k8s.io/client-go v0.18.9
 
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
@@ -22,7 +20,7 @@ require (
 	github.com/opencontainers/runc v1.0.0-rc9 //indirect
 	github.com/rancher/cli v2.2.0+incompatible
 	github.com/rancher/norman v0.0.0-20200930000340-693d65aaffe3
-	github.com/rancher/types v0.0.0-20200918184036-e1dd38de6b4a
+	github.com/rancher/types v0.0.0-20201022171446-1df760cc0093
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/viper v1.7.1
 	gopkg.in/yaml.v2 v2.3.0
