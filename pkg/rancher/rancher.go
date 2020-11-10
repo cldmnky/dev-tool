@@ -62,10 +62,10 @@ func GetClient(rancherURI string, token string) (*RancherClient, error) {
 	return rancherClient, nil
 }
 
-// GetToken returns a Rancher management token using a ADFS login flow
-func GetToken(rancherURI string) (client.Token, error) {
+// GetLoginToken returns a Rancher login token using a ADFS login flow
+func GetLoginToken(rancherURI string) (client.Token, error) {
 	token := client.Token{}
-	// Generate a private key
+	// Generate a private key, to encrypt/decrypt the authKey token
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return token, err
@@ -80,6 +80,7 @@ func GetToken(rancherURI string) (client.Token, error) {
 	if err != nil {
 		return token, err
 	}
+	// Set response type to json
 	responseType := "json"
 	tokenURL := fmt.Sprintf(authTokenURL, rancherURI, id)
 	req, err := http.NewRequest(http.MethodGet, tokenURL, bytes.NewBuffer(nil))
@@ -89,6 +90,7 @@ func GetToken(rancherURI string) (client.Token, error) {
 	req.Header.Set("content-type", "application/json")
 	req.Header.Set("accept", "application/json")
 
+	// Don´t verify certificates
 	tr := &http.Transport{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
@@ -100,18 +102,19 @@ func GetToken(rancherURI string) (client.Token, error) {
 	loginRequest := fmt.Sprintf("%s/login?requestId=%s&publicKey=%s&responseType=%s",
 		rancherURI, id, encodedKey, responseType)
 
-	fmt.Printf("\nLogin to Rancher Server at %s \n", loginRequest)
+	fmt.Printf("\nOpening browser for login to: %s \n", rancherURI)
 	openbrowser(loginRequest)
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	// timeout for user to login and get token
+	// Timeout for user to login and get token
 	timeout := time.NewTicker(15 * time.Minute)
 	defer timeout.Stop()
 
 	poll := time.NewTicker(10 * time.Second)
 	defer poll.Stop()
 
+	// Loop until we get the token
 	for {
 		select {
 		case <-poll.C:
@@ -175,7 +178,10 @@ func GetToken(rancherURI string) (client.Token, error) {
 
 // CreateToken generates a token for the cli
 func (c *RancherClient) CreateToken() (*client.Token, error) {
-	tokenOpts := &client.Token{Description: "dev-tool"}
+	tokenOpts := &client.Token{
+		Description: "dev-tool",
+		TTLMillis:   0,
+	}
 	token, err := c.Client.ManagementClient.Token.Create(tokenOpts)
 	if err != nil {
 		return nil, err
