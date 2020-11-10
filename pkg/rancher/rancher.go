@@ -141,26 +141,24 @@ func GetToken(rancherURI string) (client.Token, error) {
 				panic(err)
 			}
 			token.Token = string(decryptedBytes)
-			/*
-				// delete token
-				req, err = http.NewRequest(http.MethodDelete, tokenURL, bytes.NewBuffer(nil))
-				if err != nil {
-					return token, err
-				}
-				req.Header.Set("content-type", "application/json")
-				req.Header.Set("accept", "application/json")
-				tr := &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-					},
-				}
-				client = &http.Client{Transport: tr, Timeout: 150 * time.Second}
-				res, err = client.Do(req)
-				if err != nil {
-					// log error and use the token if login succeeds
-					fmt.Printf("DeleteToken: %v", err)
-				}
-			*/
+			// delete token
+			req, err = http.NewRequest(http.MethodDelete, tokenURL, bytes.NewBuffer(nil))
+			if err != nil {
+				return token, err
+			}
+			req.Header.Set("content-type", "application/json")
+			req.Header.Set("accept", "application/json")
+			tr := &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			}
+			client = &http.Client{Transport: tr, Timeout: 150 * time.Second}
+			res, err = client.Do(req)
+			if err != nil {
+				// log error and use the token if login succeeds
+				fmt.Printf("DeleteToken: %v", err)
+			}
 			return token, nil
 
 		case <-timeout.C:
@@ -175,18 +173,14 @@ func GetToken(rancherURI string) (client.Token, error) {
 	}
 }
 
-func generateKey() (string, error) {
-	characters := "abcdfghjklmnpqrstvwxz12456789"
-	tokenLength := 32
-	token := make([]byte, tokenLength)
-	for i := range token {
-		r, err := rand.Int(rand.Reader, big.NewInt(int64(len(characters))))
-		if err != nil {
-			return "", err
-		}
-		token[i] = characters[r.Int64()]
+// CreateToken generates a token for the cli
+func (c *RancherClient) CreateToken() (*client.Token, error) {
+	tokenOpts := &client.Token{Description: "dev-tool"}
+	token, err := c.Client.ManagementClient.Token.Create(tokenOpts)
+	if err != nil {
+		return nil, err
 	}
-	return string(token), nil
+	return token, err
 }
 
 // GetCluster returns Servers for the user
@@ -333,6 +327,20 @@ func clusterListOpts() *types.ListOpts {
 			},
 		},
 	}
+}
+
+func generateKey() (string, error) {
+	characters := "abcdfghjklmnpqrstvwxz12456789"
+	tokenLength := 32
+	token := make([]byte, tokenLength)
+	for i := range token {
+		r, err := rand.Int(rand.Reader, big.NewInt(int64(len(characters))))
+		if err != nil {
+			return "", err
+		}
+		token[i] = characters[r.Int64()]
+	}
+	return string(token), nil
 }
 
 func openbrowser(url string) {

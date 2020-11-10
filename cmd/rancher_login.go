@@ -49,11 +49,11 @@ var loginCmd = &cobra.Command{
 		if err != nil {
 			os.Exit(1)
 		}
-		cluster, err := c.GetCluster("tooling-igaming-test-euc1")
+		cliToken, err := c.CreateToken()
 		if err != nil {
-			log.Fatalf("Error getting cluster: %v", err)
+			log.Fatalf("Error creating token: %v", err)
 		}
-		fmt.Printf("Got cluster: %s\n", cluster.Name)
+		fmt.Printf("Created token: %s\n", cliToken.Token)
 		//rancher.GetClient(o.config.URL)
 	},
 }
